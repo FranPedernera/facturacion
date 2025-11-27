@@ -1,148 +1,283 @@
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
+import { supabase } from "../supabaseClient";
+import bcrypt from "bcryptjs";
 
-// Componente funcional Login
 export default function Login() {
-  // Estado para saber si estamos en modo "login" o "register"
-  const [mode, setMode] = useState("login"); // "login" | "register"
 
-  // Estado del formulario: guardamos los valores de los inputs
+  // Estado para saber si estamos en modo LOGIN o REGISTRO
+  const [mode, setMode] = useState("login");
+
+  // Estado del formulario
   const [form, setForm] = useState({
-    name: "",            // solo se usa en registro
     email: "",
     password: "",
-    confirmPassword: "", // solo se usa en registro
+    confirmPassword: "",  // solo registro
+    nombre: "",
+    apellido: "",
+    razon_social: "",
+    direccion: "",
+    cuit: "",
+    cond_iva_id: "",     // select de AFIP
   });
 
-  // Estado para mostrar mensajes de error
-  const [error, setError] = useState("");
+  // Lista de condiciones IVA traídas desde SUPABASE
+  const [condicionesIVA, setCondicionesIVA] = useState([]);
 
-  // Maneja el cambio de cualquier input del formulario
+  // Manejo general de errores y carga
+  const [error, setError] = useState("");
+  const [loading, setLoading] = useState(false);
+
+  // ================================
+  // 1️⃣ TRAER CONDICIONES IVA DESDE SUPABASE
+  // ================================
+  useEffect(() => {
+    const fetchIVA = async () => {
+      // Trae todas las filas de la tabla condiciones_iva
+      const { data, error } = await supabase
+        .from("condiciones_iva")
+        .select("*");
+
+      if (!error) setCondicionesIVA(data);
+      else console.error(error);
+    };
+
+    fetchIVA();
+  }, []);
+
+  // ================================
+  // 2️⃣ MANEJAR CAMBIOS DE INPUTS
+  // ================================
   const handleChange = (e) => {
-    // e.target.name es el "name" del input (email, password, etc.)
-    // e.target.value es lo que el usuario escribe
+    // Actualiza el estado del form dinámicamente según el "name"
     setForm({
-      ...form,                  // copiamos el estado anterior
-      [e.target.name]: e.target.value, // actualizamos solo el campo que cambió
+      ...form,
+      [e.target.name]: e.target.value,
     });
   };
 
-  // Maneja el envío del formulario (click en el botón submit)
-  const handleSubmit = (e) => {
-    // Evita que el formulario recargue la página
-    e.preventDefault();
-    // Limpiamos errores anteriores
-    setError("");
+  // ================================
+  // 3️⃣ SUBMIT LOGIN / REGISTRO
+  // ================================
+  const handleSubmit = async (e) => {
+    e.preventDefault();      // Evita recarga de página
+    setError("");            // limpia errores anteriores
+    setLoading(true);        // muestra estado cargando
 
-    // Validaciones básicas para ambos modos
-    if (!form.email || !form.password) {
-      setError("Completá email y contraseña.");
-      return; // cortamos la ejecución
-    }
+    try {
+      // VALIDACIÓN BÁSICA COMÚN
+      if (!form.email || !form.password)
+        throw new Error("Completá email y contraseña.");
 
-    // Lógica cuando estamos en modo "register"
-    if (mode === "register") {
-      // Validar que haya nombre
-      if (!form.name) {
-        setError("Completá tu nombre.");
+      // ================================
+      // ⭐ REGISTRO COMPLETO
+      // ================================
+      if (mode === "register") {
+
+        // Validaciones obligatorias para tu tabla "usuarios"
+        if (!form.nombre) throw new Error("Ingresá tu nombre.");
+        if (!form.apellido) throw new Error("Ingresá tu apellido.");
+        if (!form.razon_social) throw new Error("Ingresá tu razón social.");
+        if (!form.direccion) throw new Error("Ingresá tu dirección.");
+
+        if (!form.cuit || form.cuit.length !== 13)
+          throw new Error("Ingresá un CUIT válido de 11 dígitos.");
+
+        if (!form.cond_iva_id)
+          throw new Error("Seleccioná tu condición de IVA.");
+
+        if (form.password !== form.confirmPassword)
+          throw new Error("Las contraseñas no coinciden.");
+
+        // Ver si ya existe ese email
+        const { data: existing } = await supabase
+          .from("usuarios")
+          .select("id")
+          .eq("email", form.email)
+          .maybeSingle();
+
+        if (existing) throw new Error("Ese email ya está registrado.");
+
+        // Hashear contraseña antes de guardarla
+        const passwordHash = await bcrypt.hash(form.password, 10);
+
+        // Insertar el usuario COMPLETO en tu tabla
+        const { error: insertError } = await supabase
+          .from("usuarios")
+          .insert({
+            email: form.email,
+            password_hash: passwordHash,
+            nombre: form.nombre,
+            apellido: form.apellido,
+            razon_social: form.razon_social,
+            direccion: form.direccion,
+            cuit: form.cuit,
+            cond_iva_id: Number(form.cond_iva_id),
+          });
+
+        if (insertError) throw insertError;
+
+        alert("Registro exitoso. Ya podés iniciar sesión.");
+        setMode("login"); // cambia automáticamente a login
         return;
       }
 
-      // Validar que las contraseñas coincidan
-      if (form.password !== form.confirmPassword) {
-        setError("Las contraseñas no coinciden.");
-        return;
-      }
+      // ================================
+      // ⭐ LOGIN (busca en tabla usuarios)
+      // ================================
+      const { data: usuario, error: selError } = await supabase
+        .from("usuarios")
+        .select("*")
+        .eq("email", form.email)
+        .single();
 
-      // Acá iría la llamada a tu API / Supabase para registrarse
-      console.log("REGISTRO:", form);
-      return;
+      if (selError || !usuario)
+        throw new Error("Email o contraseña incorrectos.");
+
+      // Comparar password ingresada vs hash en base
+      const passwordOk = await bcrypt.compare(
+        form.password,
+        usuario.password_hash
+      );
+
+      if (!passwordOk)
+        throw new Error("Email o contraseña incorrectos.");
+
+      // ✔ LOGIN EXITOSO
+      alert(`Bienvenido, ${usuario.nombre}!`);
+      console.log("Datos del usuario logueado:", usuario);
+
+      // Aquí podrías guardar al usuario en contexto o localStorage
+      // Ejemplo: localStorage.setItem("user", JSON.stringify(usuario));
+
+    } catch (err) {
+      setError(err.message);
+    } finally {
+      setLoading(false);
     }
-
-    // Lógica cuando estamos en modo "login"
-    // Acá iría tu lógica real de login (Supabase, API, etc.)
-    console.log("LOGIN:", form);
   };
 
-  // JSX que se renderiza en pantalla
+  // ================================
+  // 4️⃣ RENDER DEL COMPONENTE
+  // ================================
   return (
-    <div>
-      {/* Título que cambia según el modo */}
+    <div style={{ padding: "20px" }}>
       <h2>{mode === "login" ? "Iniciar sesión" : "Crear cuenta"}</h2>
 
-      {/* Botones para cambiar entre Login y Register */}
-      <div>
-        <button type="button" onClick={() => setMode("login")}>
-          Login
-        </button>
-        <button type="button" onClick={() => setMode("register")}>
-          Register
-        </button>
-      </div>
+      {/* Botones para cambiar de modo */}
+      <button onClick={() => setMode("login")}>Login</button>
+      <button onClick={() => setMode("register")}>Register</button>
 
-      {/* Formulario */}
-      <form onSubmit={handleSubmit}>
-        {/* Campo Nombre solo se muestra en modo registro */}
+      <form onSubmit={handleSubmit} style={{ marginTop: "20px" }}>
+
+        {/* ======================= */}
+        {/* CAMPOS SOLO PARA REGISTRO */}
+        {/* ======================= */}
         {mode === "register" && (
-          <div>
-            <label>Nombre</label>
-            <br />
-            <input
-              name="name"
-              type="text"
-              value={form.name}
-              onChange={handleChange}
-              placeholder="Tu nombre"
-            />
-          </div>
+          <>
+            <div>
+              <label>Nombre</label>
+              <input name="nombre" value={form.nombre} onChange={handleChange} />
+            </div>
+
+            <div>
+              <label>Apellido</label>
+              <input name="apellido" value={form.apellido} onChange={handleChange} />
+            </div>
+
+            <div>
+              <label>Razón Social</label>
+              <input
+                name="razon_social"
+                value={form.razon_social}
+                onChange={handleChange}
+              />
+            </div>
+
+            <div>
+              <label>Dirección</label>
+              <input
+                name="direccion"
+                value={form.direccion}
+                onChange={handleChange}
+              />
+            </div>
+
+            <div>
+              <label>CUIT</label>
+              <input
+                name="cuit"
+                maxLength={13}
+                value={form.cuit}
+                onChange={handleChange}
+              />
+            </div>
+
+            {/* SELECT CONDICIÓN IVA DESDE SUPABASE */}
+            <div>
+              <label>Condición IVA</label>
+              <select
+                name="cond_iva_id"
+                value={form.cond_iva_id}
+                onChange={handleChange}
+              >
+                <option value="">Seleccionar</option>
+
+                {/* Genera dinámicamente las opciones desde la DB */}
+                {condicionesIVA.map((c) => (
+                  <option key={c.id} value={c.id}>
+                    {c.descripcion}
+                  </option>
+                ))}
+              </select>
+            </div>
+          </>
         )}
 
-        {/* Campo Email */}
+        {/* ======================= */}
+        {/* CAMPOS LOGIN + REGISTRO */}
+        {/* ======================= */}
         <div>
           <label>Email</label>
-          <br />
           <input
             name="email"
             type="email"
             value={form.email}
             onChange={handleChange}
-            placeholder="ejemplo@mail.com"
           />
         </div>
 
-        {/* Campo Contraseña */}
         <div>
           <label>Contraseña</label>
-          <br />
           <input
             name="password"
             type="password"
             value={form.password}
             onChange={handleChange}
-            placeholder="••••••••"
           />
         </div>
 
-        {/* Campo Repetir contraseña solo en registro */}
         {mode === "register" && (
           <div>
             <label>Repetir contraseña</label>
-            <br />
             <input
               name="confirmPassword"
               type="password"
               value={form.confirmPassword}
               onChange={handleChange}
-              placeholder="••••••••"
             />
           </div>
         )}
 
-        {/* Mostrar error si existe */}
+        {/* Mostrar errores */}
         {error && <p style={{ color: "red" }}>{error}</p>}
 
-        {/* Botón de enviar. El texto cambia según el modo */}
-        <button type="submit">
-          {mode === "login" ? "Entrar" : "Registrarme"}
+        {/* Botón enviar */}
+        <button type="submit" disabled={loading}>
+          {loading
+            ? "Procesando..."
+            : mode === "login"
+            ? "Entrar"
+            : "Registrarme"}
         </button>
       </form>
     </div>
