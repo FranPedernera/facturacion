@@ -1,13 +1,24 @@
-import React, { useEffect, useState } from 'react';
+import React from 'react';
+import { BrowserRouter, Routes, Route } from 'react-router-dom';
+
 import './App.css';
-//import './Auth.css';
-//import AuthForm from './components/AuthForm';
-//import supabase from './supabaseClient';
-import Login from'./components/Login';
+import Login from './components/Login';
+import Home from './components/Home'; // <- tendrás que crear este componente
+import AgregarCliente from './components/clientes/AgregarCliente';
 
 function App() {
   return (
-    <Login />
+    <BrowserRouter>
+      <Routes>
+        {/* Ruta del login */}
+        <Route path="/" element={<Login />} />
+
+        {/* Ruta de inicio luego del login */}
+        <Route path="/inicio" element={<Home />} />
+
+        <Route path="agregar-cliente" element={<AgregarCliente/>} />
+      </Routes>
+    </BrowserRouter>
   );
 }
 

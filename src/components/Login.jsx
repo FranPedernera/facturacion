@@ -1,8 +1,14 @@
 import React, { useState, useEffect } from "react";
 import { supabase } from "../supabaseClient";
 import bcrypt from "bcryptjs";
+import { useNavigate } from "react-router-dom";   // 👈 IMPORTANTE
+
+
+
 
 export default function Login() {
+  // Hook para redirigir
+  const navigate = useNavigate(); // 👈
 
   // Estado para saber si estamos en modo LOGIN o REGISTRO
   const [mode, setMode] = useState("login");
@@ -32,7 +38,6 @@ export default function Login() {
   // ================================
   useEffect(() => {
     const fetchIVA = async () => {
-      // Trae todas las filas de la tabla condiciones_iva
       const { data, error } = await supabase
         .from("condiciones_iva")
         .select("*");
@@ -48,7 +53,6 @@ export default function Login() {
   // 2️⃣ MANEJAR CAMBIOS DE INPUTS
   // ================================
   const handleChange = (e) => {
-    // Actualiza el estado del form dinámicamente según el "name"
     setForm({
       ...form,
       [e.target.name]: e.target.value,
@@ -59,9 +63,9 @@ export default function Login() {
   // 3️⃣ SUBMIT LOGIN / REGISTRO
   // ================================
   const handleSubmit = async (e) => {
-    e.preventDefault();      // Evita recarga de página
-    setError("");            // limpia errores anteriores
-    setLoading(true);        // muestra estado cargando
+    e.preventDefault();
+    setError("");
+    setLoading(true);
 
     try {
       // VALIDACIÓN BÁSICA COMÚN
@@ -72,15 +76,15 @@ export default function Login() {
       // ⭐ REGISTRO COMPLETO
       // ================================
       if (mode === "register") {
-
-        // Validaciones obligatorias para tu tabla "usuarios"
         if (!form.nombre) throw new Error("Ingresá tu nombre.");
         if (!form.apellido) throw new Error("Ingresá tu apellido.");
         if (!form.razon_social) throw new Error("Ingresá tu razón social.");
         if (!form.direccion) throw new Error("Ingresá tu dirección.");
 
-        if (!form.cuit || form.cuit.length !== 13)
-          throw new Error("Ingresá un CUIT válido de 11 dígitos.");
+        // ⚠️ Acá ajustá la longitud según cómo quieras guardar el CUIT
+        // Si querés 15 caracteres en DB: cambiá a 15 y también el maxLength del input
+        if (!form.cuit || form.cuit.length !== 15)
+          throw new Error("Ingresá un CUIT válido.");
 
         if (!form.cond_iva_id)
           throw new Error("Seleccioná tu condición de IVA.");
@@ -97,10 +101,8 @@ export default function Login() {
 
         if (existing) throw new Error("Ese email ya está registrado.");
 
-        // Hashear contraseña antes de guardarla
         const passwordHash = await bcrypt.hash(form.password, 10);
 
-        // Insertar el usuario COMPLETO en tu tabla
         const { error: insertError } = await supabase
           .from("usuarios")
           .insert({
@@ -116,8 +118,10 @@ export default function Login() {
 
         if (insertError) throw insertError;
 
-        alert("Registro exitoso. Ya podés iniciar sesión.");
-        setMode("login"); // cambia automáticamente a login
+        alert("Registro exitoso. Bienvenido 👋");
+
+        // 👉 DESPUÉS DEL REGISTRO: REDIRIGIR A /inicio
+        navigate("/inicio");
         return;
       }
 
@@ -133,7 +137,6 @@ export default function Login() {
       if (selError || !usuario)
         throw new Error("Email o contraseña incorrectos.");
 
-      // Comparar password ingresada vs hash en base
       const passwordOk = await bcrypt.compare(
         form.password,
         usuario.password_hash
@@ -142,12 +145,13 @@ export default function Login() {
       if (!passwordOk)
         throw new Error("Email o contraseña incorrectos.");
 
-      // ✔ LOGIN EXITOSO
-      alert(`Bienvenido, ${usuario.nombre}!`);
       console.log("Datos del usuario logueado:", usuario);
 
-      // Aquí podrías guardar al usuario en contexto o localStorage
-      // Ejemplo: localStorage.setItem("user", JSON.stringify(usuario));
+      // Ej: guardar sesión en localStorage si querés
+      // localStorage.setItem("user", JSON.stringify(usuario));
+
+      // 👉 DESPUÉS DEL LOGIN: REDIRIGIR A /inicio
+      navigate("/inicio");
 
     } catch (err) {
       setError(err.message);
@@ -163,15 +167,10 @@ export default function Login() {
     <div style={{ padding: "20px" }}>
       <h2>{mode === "login" ? "Iniciar sesión" : "Crear cuenta"}</h2>
 
-      {/* Botones para cambiar de modo */}
       <button onClick={() => setMode("login")}>Login</button>
       <button onClick={() => setMode("register")}>Register</button>
 
       <form onSubmit={handleSubmit} style={{ marginTop: "20px" }}>
-
-        {/* ======================= */}
-        {/* CAMPOS SOLO PARA REGISTRO */}
-        {/* ======================= */}
         {mode === "register" && (
           <>
             <div>
@@ -206,13 +205,12 @@ export default function Login() {
               <label>CUIT</label>
               <input
                 name="cuit"
-                maxLength={13}
+                maxLength={15}           // 👈 ajustá a 15 para que matchee con la validación
                 value={form.cuit}
                 onChange={handleChange}
               />
             </div>
 
-            {/* SELECT CONDICIÓN IVA DESDE SUPABASE */}
             <div>
               <label>Condición IVA</label>
               <select
@@ -221,8 +219,6 @@ export default function Login() {
                 onChange={handleChange}
               >
                 <option value="">Seleccionar</option>
-
-                {/* Genera dinámicamente las opciones desde la DB */}
                 {condicionesIVA.map((c) => (
                   <option key={c.id} value={c.id}>
                     {c.descripcion}
@@ -233,9 +229,6 @@ export default function Login() {
           </>
         )}
 
-        {/* ======================= */}
-        {/* CAMPOS LOGIN + REGISTRO */}
-        {/* ======================= */}
         <div>
           <label>Email</label>
           <input
@@ -268,10 +261,8 @@ export default function Login() {
           </div>
         )}
 
-        {/* Mostrar errores */}
         {error && <p style={{ color: "red" }}>{error}</p>}
 
-        {/* Botón enviar */}
         <button type="submit" disabled={loading}>
           {loading
             ? "Procesando..."
