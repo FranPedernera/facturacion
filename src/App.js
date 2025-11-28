@@ -1,16 +1,24 @@
-import Navbar from "./components/layout/Navbar"
-import './index.css';
-import './components/layout/LayoutAuth'
+import React from 'react';
+import { BrowserRouter, Routes, Route } from 'react-router-dom';
 
+import './App.css';
+import Login from './components/Login';
+import Home from './components/Home'; // <- tendrás que crear este componente
+import AgregarCliente from './components/clientes/AgregarCliente';
 
 function App() {
   return (
-    <>
-      <Navbar />
-      <div className="pt-20 p-6 text-white">
-        <h1 className="text-3xl">Contenido de tu sistema ARCA</h1>
-      </div>
-    </>
+    <BrowserRouter>
+      <Routes>
+        {/* Ruta del login */}
+        <Route path="/" element={<Login />} />
+
+        {/* Ruta de inicio luego del login */}
+        <Route path="/inicio" element={<Home />} />
+
+        <Route path="agregar-cliente" element={<AgregarCliente/>} />
+      </Routes>
+    </BrowserRouter>
   );
   
 }
