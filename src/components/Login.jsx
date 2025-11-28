@@ -147,8 +147,11 @@ export default function Login() {
 
       console.log("Datos del usuario logueado:", usuario);
 
+      //alert(localStorage.getItem("user"));
+
+
       // Ej: guardar sesión en localStorage si querés
-      // localStorage.setItem("user", JSON.stringify(usuario));
+      localStorage.setItem("user", JSON.stringify(usuario));
 
       // 👉 DESPUÉS DEL LOGIN: REDIRIGIR A /inicio
       navigate("/inicio");
@@ -238,7 +241,6 @@ export default function Login() {
             onChange={handleChange}
           />
         </div>
-
         <div>
           <label>Contraseña</label>
           <input
@@ -248,7 +250,6 @@ export default function Login() {
             onChange={handleChange}
           />
         </div>
-
         {mode === "register" && (
           <div>
             <label>Repetir contraseña</label>
