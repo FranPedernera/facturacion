@@ -22,6 +22,10 @@ export default function Home() {
           Ver Facturas
         </button>
 
+                <button onClick={() => navigate("/mostrar-clientes")}>
+          Ver Clientes
+        </button>
+
       </div>
     </div>
   );

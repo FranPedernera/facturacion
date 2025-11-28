@@ -5,6 +5,7 @@ import './App.css';
 import Login from './components/Login';
 import Home from './components/Home'; // <- tendrás que crear este componente
 import AgregarCliente from './components/clientes/AgregarCliente';
+import MostrarClientes from './components/clientes/MostrarClientes';
 
 function App() {
   return (
@@ -17,6 +18,9 @@ function App() {
         <Route path="/inicio" element={<Home />} />
 
         <Route path="agregar-cliente" element={<AgregarCliente/>} />
+
+        <Route path="mostrar-clientes" element={<MostrarClientes/>} />
+
       </Routes>
     </BrowserRouter>
   );
