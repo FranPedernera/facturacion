@@ -1,0 +1,12 @@
+.navbar-logo {
+  font-size: 22px;
+  letter-spacing: 1px;
+}
+
+.navbar-link {
+  transition: 0.2s ease;
+}
+
+.navbar-link:hover {
+  color: #60a5fa; /* azul tailwind 400 */
+}

@@ -1,14 +1,18 @@
-import React, { useEffect, useState } from 'react';
-import './App.css';
-//import './Auth.css';
-//import AuthForm from './components/AuthForm';
-//import supabase from './supabaseClient';
-import Login from'./components/Login';
+import Navbar from "./components/layout/Navbar"
+import './index.css';
+import './components/layout/LayoutAuth'
+
 
 function App() {
   return (
-    <Login />
+    <>
+      <Navbar />
+      <div className="pt-20 p-6 text-white">
+        <h1 className="text-3xl">Contenido de tu sistema ARCA</h1>
+      </div>
+    </>
   );
+  
 }
 
 export default App;
